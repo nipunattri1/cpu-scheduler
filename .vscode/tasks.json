@@ -1,0 +1,25 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Scheduler",
+            "type": "shell",
+            "command": "g++ -g -std=c++17 -Wall $(find ${workspaceFolder}/src -name '*.cpp') -I${workspaceFolder}/src/headers -o ${workspaceFolder}/scheduler",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "Run Scheduler",
+            "type": "shell",
+            "command": "${workspaceFolder}/scheduler",
+            "dependsOn": "Build Scheduler",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        }
+    ]
+}
