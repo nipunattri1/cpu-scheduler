@@ -7,8 +7,7 @@
 std::vector<ExecutionBlock> ShortestRemainingTimeFirst::run(std::vector<ProgramInfo> programs)
 {
     current_time = 0;
-    std::sort(programs.begin(), programs.end(), [](ProgramInfo &a, ProgramInfo &b)
-              { return a.arrival < b.arrival; });
+    std::sort(programs.begin(), programs.end(), program_arrival_compare);
 
     std::unordered_map<size_t, size_t> remaining;
     for (ProgramInfo &p : programs)

@@ -4,8 +4,7 @@
 std::vector<ExecutionBlock> FirstComeFirstServer::run(std::vector<ProgramInfo> programs)
 {
     current_time = 0;
-    std::sort(programs.begin(), programs.end(), [](ProgramInfo &a, ProgramInfo &b)
-              { return a.arrival < b.arrival; });
+    std::sort(programs.begin(), programs.end(), program_arrival_compare);
 
     std::vector<ExecutionBlock> exection_blocks;
     for (const ProgramInfo &i : programs)

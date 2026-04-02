@@ -10,8 +10,7 @@ std::vector<ExecutionBlock> Priority::run(std::vector<ProgramInfo> programs)
     std::vector<bool> visited(programs.size(), false);
     std::vector<ExecutionBlock> execution_order;
 
-    std::sort(programs.begin(), programs.end(), [](ProgramInfo &a, ProgramInfo &b)
-              { return a.arrival < b.arrival; });
+    std::sort(programs.begin(), programs.end(), program_arrival_compare);
 
     size_t completed_program_count = 0;
     current_time = 0;

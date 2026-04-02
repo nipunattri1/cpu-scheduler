@@ -13,8 +13,7 @@ std::vector<ExecutionBlock> ShortestJobFirst::run(std::vector<ProgramInfo> progr
 
     std::vector<ExecutionBlock> execution_order;
 
-    std::sort(programs.begin(), programs.end(), [](ProgramInfo &a, ProgramInfo &b)
-              { return a.arrival < b.arrival; });
+    std::sort(programs.begin(), programs.end(), program_arrival_compare);
 
     size_t completed_program_count = 0;
 

@@ -6,8 +6,7 @@
 std::vector<ExecutionBlock> RoundRobin::run(std::vector<ProgramInfo> programs)
 {
     current_time = 0;
-    std::sort(programs.begin(), programs.end(), [](ProgramInfo &a, ProgramInfo &b)
-              { return a.arrival < b.arrival; });
+    std::sort(programs.begin(), programs.end(), program_arrival_compare);
 
     constexpr size_t quantum_time = 2;
     size_t completed_program_count = 0;
