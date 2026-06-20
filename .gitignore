@@ -1,0 +1,4 @@
+.git/*
+src/headers/sched.skel.h
+src/headers/vmlinux.h
+build/*
