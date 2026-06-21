@@ -4,3 +4,7 @@ Edge case worth thinking about now even if you don't solve it yet: what happens 
 
 Bug 3: dropping the return value of scx_bpf_dsq_move_to_local
 It returns a bool — whether it actually moved a task. Right now you ignore it. This matters once you implement the "leftovers from the previous policy" fallback we discussed earlier: if the move from the active policy's DSQ fails (empty), you'd want to try the other DSQ(s) before giving up, so tasks queued under a policy that's no longer active still eventually run. Not fatal for compiling/loading, but it's the next thing you'll want once policy switching is actually live, otherwise switching policy mid-run silently strands whatever was still queued in the old DSQ.
+
+## metrics in user space
+
+## need to make sure, prev quees are drained before any switch is made

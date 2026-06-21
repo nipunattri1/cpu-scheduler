@@ -1,7 +1,7 @@
 CLANG      := clang
 CC         := gcc
 BPFTOOL    := bpftool
-BPF_CFLAGS := -g -O2 -target bpf -Wall -D__x86_64__ -Isrc
+BPF_CFLAGS := -g -O2 -target bpf -Wall -D__x86_64__ -Isrc -Isrc/headers
 
 CFLAGS     := -Wall -O2 -Ibuild -I. -I ./src/headers
 LDFLAGS    := -lbpf -lelf -lz

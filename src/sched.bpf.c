@@ -1,31 +1,17 @@
-#include "algos/fcfs.c"
+#include "algos/fcfs.bpf.c"
 #include "headers/enums.h"
+#include "headers/struct_ops.h"
 #include "headers/vmlinux.h"
 #include <bpf/bpf_helpers.h>
+#include <bpf/bpf_tracing.h>
 
 #define DSQ_RR 2
 
-static u64 vtime_now;
-static volatile u32 active_policy_g = POLICY_MLFQ;
+// static u64 vtime_now;
+static volatile u32 active_policy_g = POLICY_FCFS;
 
-SEC("struct_ops/adaptive_enqueue")
-void adaptive_enqueue(struct task_struct *p, u64 flags) {
-  // TODO: write enque functions
-  switch (active_policy_g) {
-  case POLICY_FCFS:
-    fcfs_enqueue(p, flags);
-    break;
-  case POLICY_RR:
-  case POLICY_PRIORITY:
-  default:
-    // mlqfs should be here
-    scx_bpf_dsq_insert(p, SCX_DSQ_GLOBAL, SCX_SLICE_DFL, flags);
-    break;
-  }
-};
-
-SEC("struct_ops/select_cpu")
-s32 select_cpu(struct task_struct *p, s32 prev_cpu, u64 wake_flags) {
+s32 BPF_STRUCT_OPS(sched_select_cpu, struct task_struct *p, s32 prev_cpu,
+                   u64 wake_flags) {
   /*
   Select the last (hot) cpu if idle else ask kernel to provide an cpu
   */
@@ -44,8 +30,22 @@ s32 select_cpu(struct task_struct *p, s32 prev_cpu, u64 wake_flags) {
   return cpu;
 }
 
-SEC("struct_ops.s/adaptive_init")
-s32 adaptive_init(void) {
+void BPF_STRUCT_OPS(sched_enqueue, struct task_struct *p, u64 flags) {
+  // TODO: write enque functions
+  switch (active_policy_g) {
+  case POLICY_FCFS:
+    fcfs_enqueue(p, flags);
+    break;
+  case POLICY_RR:
+  case POLICY_PRIORITY:
+  default:
+    // mlqfs should be here
+    scx_bpf_dsq_insert(p, SCX_DSQ_GLOBAL, SCX_SLICE_DFL, flags);
+    break;
+  }
+};
+
+s32 BPF_STRUCT_OPS_SLEEPABLE(sched_int) {
   s32 err;
   err = fcfs_init();
   if (err)
@@ -53,30 +53,14 @@ s32 adaptive_init(void) {
   return scx_bpf_create_dsq(DSQ_RR, -1);
 }
 
-SEC("struct_ops/adaptive_exit")
-void adaptive_exit(struct scx_exit_info *ei) {
+void BPF_STRUCT_OPS(sched_exit, struct scx_exit_info *ei) {
   /*
   dsq are auto removed and function can be used for logging
   (hence empty for now)
   */
 }
 
-u64 get_current_policy_dsq() {
-  switch (active_policy_g) {
-  case POLICY_FCFS:
-    return DSQ_FCFS;
-  default:
-    return DSQ_RR;
-    // case POLICY_RR:
-    // case POLICY_PRIORITY:
-    // default:
-    // mlqfs should be here
-    break;
-  }
-}
-
-SEC("struct_ops/adaptive_dispatch")
-void adaptive_dispatch(s32 cpu, struct task_struct *prev_task) {
+void BPF_STRUCT_OPS(sched_dispatch, s32 cpu, struct task_struct *prev_task) {
   switch (active_policy_g) {
   case POLICY_FCFS:
     fcfs_dispatch(cpu, prev_task);
@@ -92,11 +76,11 @@ void adaptive_dispatch(s32 cpu, struct task_struct *prev_task) {
 
 SEC(".struct_ops.link")
 struct sched_ext_ops sched_ops = {
-    .select_cpu = (void *)select_cpu,
-    .enqueue = (void *)adaptive_enqueue,
-    .dispatch = (void *)adaptive_dispatch,
-    .init = (void *)adaptive_init,
-    .exit = (void *)adaptive_exit,
+    .select_cpu = (void *)sched_select_cpu,
+    .enqueue = (void *)sched_enqueue,
+    .dispatch = (void *)sched_dispatch,
+    .init = (void *)sched_int,
+    .exit = (void *)sched_exit,
     .name = "sched",
 };
 
