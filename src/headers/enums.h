@@ -4,6 +4,6 @@
 
 enum policy { POLICY_FCFS, POLICY_RR, POLICY_PRIORITY, POLICY_MLFQ };
 
-enum dsqs { DSQ_FCFS = 1 };
+enum dsqs { DSQ_FCFS = 1, DSQ_RR };
 
 #endif

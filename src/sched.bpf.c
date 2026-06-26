@@ -1,4 +1,5 @@
 #include "algos/fcfs.bpf.c"
+#include "algos/rr.bpf.c"
 #include "headers/enums.h"
 #include "headers/struct_ops.h"
 #include "headers/vmlinux.h"
@@ -37,6 +38,8 @@ void BPF_STRUCT_OPS(sched_enqueue, struct task_struct *p, u64 flags) {
     fcfs_enqueue(p, flags);
     break;
   case POLICY_RR:
+    rr_enqueue(p, flags);
+    break;
   case POLICY_PRIORITY:
   default:
     // mlqfs should be here
@@ -45,12 +48,16 @@ void BPF_STRUCT_OPS(sched_enqueue, struct task_struct *p, u64 flags) {
   }
 };
 
-s32 BPF_STRUCT_OPS_SLEEPABLE(sched_int) {
+s32 BPF_STRUCT_OPS_SLEEPABLE(sched_init) {
   s32 err;
   err = fcfs_init();
   if (err)
     return err;
-  return scx_bpf_create_dsq(DSQ_RR, -1);
+  err = rr_init();
+  // if (err)
+  //   return err;
+
+  return err;
 }
 
 void BPF_STRUCT_OPS(sched_exit, struct scx_exit_info *ei) {
@@ -66,20 +73,29 @@ void BPF_STRUCT_OPS(sched_dispatch, s32 cpu, struct task_struct *prev_task) {
     fcfs_dispatch(cpu, prev_task);
     break;
   case POLICY_RR:
+    rr_dispatch(cpu, prev_task);
+    break;
   case POLICY_PRIORITY:
   default:
     // Fallback or MLFQ/RR dispatch logic here
-    scx_bpf_dsq_move_to_local(DSQ_RR);
+    rr_dispatch(cpu, prev_task);
     break;
   }
 }
 
+// void BPF_STRUCT_OPS(sched_tick, struct task_struct *p) {
+//   if (active_policy_g == POLICY_RR){
+//     rr_tick_handler(p);
+//   }
+// }
+
 SEC(".struct_ops.link")
 struct sched_ext_ops sched_ops = {
-    .select_cpu = (void *)sched_select_cpu,
+    .init = (void *)sched_init,
+    // .tick = (void *)sched_tick,
     .enqueue = (void *)sched_enqueue,
+    .select_cpu = (void *)sched_select_cpu,
     .dispatch = (void *)sched_dispatch,
-    .init = (void *)sched_int,
     .exit = (void *)sched_exit,
     .name = "sched",
 };
