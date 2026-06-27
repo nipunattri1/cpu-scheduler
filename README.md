@@ -1,4 +1,3 @@
-
 # scx_adaptive: Closed-Loop Multi-Policy eBPF Scheduler
 
 `scx_adaptive` is an adaptive, dynamic kernel-level CPU scheduling framework powered by **`sched_ext` (SCX)** and **eBPF**. By marrying the low overhead of in-kernel scheduling rings with user-space runtime classification telemetry, the system dynamically changes scheduling policies on-the-fly to match evolving real-world workloads.
@@ -97,7 +96,7 @@ To compile and load this project, your environment must include:
 
 ## 💻 Compilation
 
-The system relies on a automated dual-pass compilation pipeline via the root `makefile`. It handles dumping `vmlinux.h` metadata, compiling kernel-space BPF objects, auto-generating user-space access layouts, and linking standard system runtime environments:
+The system relies on an automated dual-pass compilation pipeline via the root `makefile`. It handles dumping `vmlinux.h` metadata, compiling kernel-space BPF objects, auto-generating user-space access layouts, and linking standard system runtime environments:
 
 ```bash
 # Clone and enter the repository
@@ -124,45 +123,107 @@ Running the scheduler within sandboxed, temporary testing frameworks like **`vir
 
 ### 1. Activating the System
 
-Launch the generated user-space controller under standard superuser privileges:
+Launch the generated user-space controller under standard superuser privileges. You can control execution and analysis via execution flags:
 
 ```bash
-sudo build/sched
+sudo build/sched [-a] [-f <policy>]
 
 ```
+
+#### Available Flags
+
+* **`-a`** : Enables analytical verbose printing to monitor detailed, real-time internal telemetry and metric tracking loops.
+* **`-f <policy>`** : Forces or modifies the global scheduling mode. Valid policy choices include:
+* `auto` (Default closed-loop dynamic selection)
+* `fcfs`
+* `rr`
+* `priority`
 
 > **Output Indicator:** `Scheduler attached. Logging policy switches and stats...`
 
 ### 2. Validating Runtime Adaptivity
 
-Open an alternative interface terminal window while `scx_adaptive` runs, using benchmark stressors to confirm dynamic mode execution switches:
-
-#### Mode Target A: Heavy Compute Processing (`FCFS` Verification)
-
-Simulate extended continuous execution bursts across all active threads to force the metrics engine into heavy workload prioritization modes:
+Open an alternative interface terminal window while `scx_adaptive` runs. Execute the multi-threaded lock and yield stressor to challenge the active policy core:
 
 ```bash
-# If stress-ng is installed
-stress-ng --cpu $(nproc) --timeout 30s
-
-# Pure shell alternative
-for i in $(seq 1 $(nproc)); do sha256sum /dev/zero & done; sleep 30; killall sha256sum
+sysbench threads --threads=64 --thread-yields=1000 --thread-locks=8 run
 
 ```
 
-*Expected Behaviour:* The controller log interface will output an active policy transition event towards `FCFS` or `PRIORITY`, citing elevated global load tracking queues.
+*Expected Behaviour:* The controller log interface (especially when accompanied by the `-a` flag) will document a spike in telemetry metrics—notably context switching frequencies and queue latencies—prompting the internal hysteresis-gated feedback loop to dynamically adapt execution rings to handle the heavy lock contention.
 
-#### Mode Target B: High-Frequency Context Switching (`Round Robin` Verification)
+---
 
-Simulate highly interactive workloads with frequent micro-sleep intervals to trigger low-latency execution rings:
+## Stats
 
-```bash
-# Using stress-ng's sleep/yield engine
-stress-ng --sleep 4 --sleep-ops 10000 --timeout 30s
+```md
+okiw, i got some stats
+auto:
+General statistics:
+    total time:                          10.0343s
+    total number of events:              30278
 
+Latency (ms):
+         min:                                    0.42
+         avg:                                   21.18
+         max:                                  136.98
+         95th percentile:                       75.82
+         sum:                               641180.11
+
+Threads fairness:
+    events (avg/stddev):           473.0938/27.57
+    execution time (avg/stddev):   10.0184/0.01
+
+rr:
+General statistics:
+    total time:                          10.0340s
+    total number of events:              27979
+
+Latency (ms):
+         min:                                    0.40
+         avg:                                   22.91
+         max:                                  132.07
+         95th percentile:                       74.46
+         sum:                               641135.90
+
+Threads fairness:
+    events (avg/stddev):           437.1719/22.64
+    execution time (avg/stddev):   10.0177/0.01
+
+fcfs:
+General statistics:
+    total time:                          10.0309s
+    total number of events:              26255
+
+Latency (ms):
+         min:                                    0.41
+         avg:                                   24.42
+         max:                                  136.59
+         95th percentile:                       75.82
+         sum:                               641075.13
+
+Threads fairness:
+    events (avg/stddev):           410.2344/25.36
+    execution time (avg/stddev):   10.0168/0.01
+
+Threads started!
+
+priority:
+General statistics:
+    total time:                          10.0268s
+    total number of events:              32629
+
+Latency (ms):
+         min:                                    0.43
+         avg:                                   19.65
+         max:                                  137.73
+         95th percentile:                       84.47
+         sum:                               641062.28
+
+Threads fairness:
+    events (avg/stddev):           509.8281/36.23
+    execution time (avg/stddev):   10.0166/0.01
 ```
-
-*Expected Behaviour:* The dashboard logs will trigger an active confidence migration pointing straight to `RR`, documenting an explosion of user-space context switches paired with tiny execution burst intervals.
 
 ---
 

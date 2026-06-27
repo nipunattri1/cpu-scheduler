@@ -25,15 +25,12 @@ static const char *policy_name(__u32 p) {
   }
 }
 
-/* ---- raw totals pulled from stats_map ---- */
 struct raw_totals {
   __u64 preemptions, context_switches, total_cpu_ticks, processes_handled;
   __u64 idle_ticks, completions, burst_sum_ns, wait_sum_ns, response_sum_ns;
   __u64 starvation_count, interactive_count, total_processes;
 };
 
-/* ---- derived, EMA-smoothed workload metrics (mirrors C++ WorkloadMetrics)
- * ---- */
 struct workload_metrics {
   double avg_burst_length_ms;
   double avg_waiting_time_ms;
@@ -350,7 +347,7 @@ static int select_policy(const struct policy_score scores[3],
   return 1;
 }
 
-static void print_stats(struct sched_bpf *skel) {
+static inline void print_stats(struct sched_bpf *skel) {
   struct raw_totals total;
   if (read_raw_totals(skel, &total))
     return;
