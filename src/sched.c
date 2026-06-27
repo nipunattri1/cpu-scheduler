@@ -1,5 +1,5 @@
+#include "headers/adapt.h"
 #include "headers/helpers.h"
-#include "headers/log.h"
 #include "headers/sched.skel.h"
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
@@ -9,21 +9,7 @@
 #include <unistd.h>
 
 static volatile sig_atomic_t exiting = 0;
-
 static void sig_handler(int sig) { exiting = 1; }
-
-static int handle_switch_event(void *ctx, void *data, size_t len) {
-  const struct switch_event *e = data;
-
-  printf("==================================================\n");
-  printf("[SCHED] *** POLICY SWITCH ***\n");
-  printf("  Tick (ns) : %llu\n", (unsigned long long)e->tick);
-  printf("  From      : %s\n", policy_name(e->from_policy));
-  printf("  To        : %s\n", policy_name(e->to_policy));
-  printf("  Reason    : %u\n", e->reason);
-  printf("==================================================\n");
-  return 0;
-}
 
 int main(void) {
   struct sched_bpf *skel;
@@ -53,14 +39,18 @@ int main(void) {
   }
 
   rb = ring_buffer__new(bpf_map__fd(skel->maps.switch_events),
-                        handle_switch_event, NULL, NULL);
+                       handle_switch_event, NULL, NULL);
   if (!rb) {
-    fprintf(stderr, "failed to create ring buffer\n");
+    fprintf(stderr, "failed to create user-space ring buffer interface\n");
     err = -1;
     goto cleanup;
   }
 
   printf("Scheduler attached. Logging policy switches and stats...\n");
+
+  struct workload_metrics metrics = {0};
+  struct raw_totals prev_totals = {0};
+  read_raw_totals(skel, &prev_totals); /* baseline */
 
   last_stats = time(NULL);
   while (!exiting) {
@@ -74,9 +64,12 @@ int main(void) {
       break;
     }
 
-    if (time(NULL) - last_stats >= 1) {
-      print_stats(skel);
-      last_stats = time(NULL);
+    time_t now = time(NULL);
+    if (now - last_stats >= 1) {
+      // print_stats(skel);
+      evaluate_and_adapt(skel, &metrics, &prev_totals,
+                         (double)(now - last_stats));
+      last_stats = now;
     }
   }
 
